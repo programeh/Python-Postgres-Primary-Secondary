@@ -27,7 +27,8 @@
   "replica_count": 2,
   "max_connections": 200,
   "shared_buffers": "256MB",
-  "region": "us-east-1"
+  "region": "us-east-1",
+  "image_tag": "14-alpine"
 }
 ```
 This endpoint generates the inventory.ini file by using terraform outputs which is used to patch the instances to run postgres
