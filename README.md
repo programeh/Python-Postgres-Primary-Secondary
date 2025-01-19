@@ -40,20 +40,24 @@ Postgres runs in two modes when it comes to replication.
 
 in postgres asyncronous replication is prefered as in synchronous mode it leads to entire cluster going down even if replica goes down.The next write is not proceesed untill the write is replicated to replica instances in syncronous mode.
 
-currently I am using docker to run postgres , it is using host networking mode which means host and docker share same eni
+currently I am using docker to run postgres , it is using host networking mode which means host and docker share same eni.
+I am doing a physical replication between primary and secondary which means there is one to one mapping in the bytes getting copied between them.
+
+> **Note:** by adding a lot of replicas we introduce overhead on network and cpu of primary , so it is a best practice to keep replicas below 5 for optimal performance
 
 ### why I choose docker?
 * As I was facing issues with getting older versions of postgres , by using this approach I ensured that we can upgrade or down grade postgres to any version I want.
 
 ### source of information used to do this project
-[postgres tutorial](https://www.youtube.com/watch?v=Jm7deC0mOyY)
-[postgres tutorial 2 ](https://www.youtube.com/watch?v=UjrvaGvSCOI)
+* [postgres tutorial](https://www.youtube.com/watch?v=Jm7deC0mOyY)
+* [postgres tutorial 2 ](https://www.youtube.com/watch?v=UjrvaGvSCOI)
 
 ## future improvements 
 * we can create a front end to this app so that it looks beautiful
 
 ## if you want to add more options in postgres primary
 * just update the docker compose files of primary and secondary populate its values in inventory.ini
+
 
 
 
