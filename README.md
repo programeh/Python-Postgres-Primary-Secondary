@@ -33,7 +33,7 @@
 ```
 This endpoint generates the inventory.ini file by using terraform outputs which is used to patch the instances to run postgres
 
-### architecture overview 
+### Architecture Overview 
 Postgres runs in two modes when it comes to replication.
 1. asynchronous - in this case there is a replication lag between the writes in primary and secondary
 2. synchronous - in this there will be no replication lag between writes of primary and secondary
@@ -41,4 +41,21 @@ Postgres runs in two modes when it comes to replication.
 in postgres asyncronous replication is prefered as in synchronous mode it leads to entire cluster going down even if replica goes down.The next write is not proceesed untill the write is replicated to replica instances in syncronous mode.
 
 currently I am using docker to run postgres , it is using host networking mode which means host and docker share same eni
+
+### why I choose docker?
+* As I was facing issues with getting older versions of postgres , by using this approach I ensured that we can upgrade or down grade postgres to any version I want.
+
+### source of information used to do this project
+[postgres tutorial](https://www.youtube.com/watch?v=Jm7deC0mOyY)
+[postgres tutorial 2 ](https://www.youtube.com/watch?v=UjrvaGvSCOI)
+
+## future improvements 
+* we can create a front end to this app so that it looks beautiful
+
+## if you want to add more options in postgres primary
+* just update the docker compose files of primary and secondary populate its values in inventory.ini
+
+
+
+
 
