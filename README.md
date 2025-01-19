@@ -56,7 +56,7 @@ I am doing a physical replication between primary and secondary which means ther
 * we can create a front end to this app so that it looks beautiful
 
 ## if you want to add more options in postgres primary
-* just update the docker compose files of primary and secondary populate its values in inventory.ini
+* just update the docker compose files of primary and secondary populate its values in inventory.ini , take input in `/apply_ansible_configuration` api and generate inventory.ini dynamically
 
 
 > **Note:** please use python version greater than 3.8 on client machines as ansible core gives error for python version lower than this. For this purpose I used amazon linux 2023 ami which has latest version of python preinstalled.
