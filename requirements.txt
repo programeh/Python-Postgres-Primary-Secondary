@@ -1,0 +1,4 @@
+Flask == 2.2.2
+ansible-runner == 2.3.0
+Werkzeug==2.2.2
+setuptools==75.8.0

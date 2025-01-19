@@ -1,0 +1,33 @@
+version: '3.8'
+x-postgres-common:
+  &postgres-common
+  image: postgres:DEVOPS_IMAGE_TAG
+  network_mode: "host"
+  user: postgres
+  restart: always
+  healthcheck:
+    test: 'pg_isready -U user --dbname=postgres'
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
+services:
+  postgres_primary:
+    <<: *postgres-common
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256\nhost replication all 0.0.0.0/0 md5"
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    command: |
+      postgres 
+      -c wal_level=replica 
+      -c hot_standby=on 
+      -c max_wal_senders=DEVOPS_NUM_OF_WALSENDER
+      -c max_replication_slots=DEVOPS_NUM_OF_REPLICAS
+      -c hot_standby_feedback=on
+      -c max_connections=DEVOPS_MAX_CONNECTIONS
+      -c shared_buffers=DEVOPS_SHARED_BUFF
+    volumes:
+      - ./00_init.sql:/docker-entrypoint-initdb.d/00_init.sql

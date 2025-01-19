@@ -1,0 +1,90 @@
+---
+- name: Bootstrap PostgreSQL primary
+  hosts: primary
+  become: yes
+
+  vars:
+    remote_path: "/opt/docker-compose.yml"
+
+  tasks:
+    - name: Print the inventory hostname
+      debug:
+        msg: "The current host is {{ inventory_hostname }}"
+
+    - name: install docker compose
+      shell: |
+        sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose version
+
+    - name: upload files to primary
+      copy:
+        src: "./primary/"
+        dest: "/opt/"
+        owner: root
+        group: root
+        mode: '0755'
+    - name: add replication slots file path
+      shell: |
+        file_path=/opt/00_init.sql
+        for ((i=0; i< ${REPLICA_INSTANCES}; i++)); do
+            echo "SELECT pg_create_physical_replication_slot('replication_slot_$i');" >> "$file_path"
+        done
+
+        echo "Replication slot statements added to $file_path."
+      environment:
+        REPLICA_INSTANCES: "{{ number_of_replicas }}"
+    - name: replace values with inputs
+      shell: |
+        sed -i "s|DEVOPS_MAX_CONNECTIONS|{{ max_conns }}|g" "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_SHARED_BUFF|{{ shared_buffers }}|g"  "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_IMAGE_TAG|{{ postgres_sql_version }}|g"  "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_NUM_OF_REPLICAS|{{ number_of_replicas }}|g"  "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_NUM_OF_WALSENDER|{{ number_of_walsender }}|g"  "/opt/docker-compose.yml"
+
+    - name: docker compose run
+      shell: |
+        docker-compose -f {{ remote_path }} up -d
+
+- name: Bootstrap PostgreSQL secondary
+  hosts: replicas
+  become: yes
+  vars:
+    remote_path: "/opt/docker-compose.yml"
+
+  tasks:
+    - name: Wait for 30 seconds
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Print the inventory hostname
+      debug:
+        msg: "The current host is {{ inventory_hostname }}"
+
+    - name: install docker compose
+      shell: |
+        sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose version
+
+    - name: upload files to replica
+      copy:
+        src: "./secondary/"
+        dest: "/opt/"
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: replace values
+      shell: |
+        sed -i "s|DEVOPS_MAX_CONNECTIONS|{{ max_conns }}|g" "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_SHARED_BUFF|{{ shared_buffers }}|g"  "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_IMAGE_TAG|{{ postgres_sql_version }}|g"  "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_PRIMARY_IP|{{ primary_private_ip }}|g"  "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_INDEX|${NODE_INDEX}|g" "/opt/docker-compose.yml"
+      environment:
+        NODE_INDEX : "{{ groups['replicas'].index(inventory_hostname) }}"
+
+    - name: docker compose run
+      shell: |
+        docker-compose -f {{ remote_path }} up -d
