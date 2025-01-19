@@ -21,7 +21,7 @@
 ```
 * `/generate-terraform-plan` is used to get the plan result in json format, it doesn't take any inputs. It gives out the plan output in json format
 * `/generate-terraform-apply` is used to get the apply result in json format. It gives out the apply output in json format
-* `/apply_ansible_configuration` is used to setup the provisioned infrastructure to run postgres in primary secondary asynchronous replication.It take json input
+* `/apply_ansible_configuration` is used to setup the provisioned infrastructure to run postgres in primary secondary asynchronous replication.It takes json input
 ```json
 {
   "replica_count": 2,
