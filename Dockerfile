@@ -11,13 +11,13 @@ RUN apk add wget unzip && \
 
 WORKDIR /app
 
-COPY main.py requirements.txt terraform_template.j2  /app/
+COPY main.py requirements.txt terraform_template.j2 LoggerTemplate.py /app/
 
 RUN mkdir -p terrafrom/ansible && \
     mkdir -p terrafrom/ansible/primary && \
     mkdir -p terrafrom/ansible/secondary && \
     apk update  && \
-    apk add py3-pip openssh && \
+    apk add py3-pip openssh build-base sqlite sqlite-dev gcc musl-dev libffi-dev && \
     pip3 install -r requirements.txt
 
 # copy the docker compose files , ansible default config and ansible playbook

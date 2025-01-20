@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify
+from LoggerTemplate import get_logger
 from jinja2 import Template
 import os
 import subprocess
 import json
 import sys
 import ansible_runner
+import sqlite3
 
 app = Flask(__name__)
 
@@ -14,34 +16,67 @@ TERRAFORM_DIR = "/app/terrafrom"
 ANSIBLE_DIR="/app/terrafrom/ansible"
 replica_count=1
 
+# Initialize the database (run this once to set up the DB)
+def init_db():
+    with sqlite3.connect("/app/logs.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS logs (timestamp TEXT, log_message TEXT)")
+        conn.commit()
 
 def is_terraform_initialized():
     return os.path.isdir(os.path.join(TERRAFORM_DIR, ".terraform"))
 
-def run_terraform_command(command,cmd=None):
+def run_terraform_command(command,logger,cmd=None):
     try:
         result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cmd)
-        print(result.stdout.decode())
-        print(result.stderr.decode())
+        logger.info(result.stdout.decode())
         return result.stdout.decode()
     except subprocess.CalledProcessError as e:
-        print(f"Error running command: {' '.join(command)}")
-        print(e.stderr.decode())
+        logger.error(f"Error running command: {' '.join(command)}")
+        logger.error(e.stderr.decode())
         return None
 
     except FileNotFoundError as e:
         # Handle case where Terraform is not found (e.g., Terraform is not installed)
-        print(f"FileNotFoundError: {e}")
-        print("Ensure Terraform is installed and available in your system PATH.")
+        logger.error(f"FileNotFoundError: {e}")
+        logger.error("Ensure Terraform is installed and available in your system PATH.")
         return None
 
     except Exception as e:
         # Catch any other exceptions
-        print(f"An unexpected error occurred: {e}")
+        logger.error(f"An unexpected error occurred: {e}")
         return None
+
+@app.route('/logs', methods=['POST'])
+def receive_logs():
+    log_data = request.json
+    if log_data:
+        log_message = log_data.get("log")
+        timestamp = log_data.get("timestamp")
+
+        # Store log in the database
+        with sqlite3.connect("/app/logs.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO logs (timestamp, log_message) VALUES (?, ?)", (timestamp, log_message))
+            conn.commit()
+
+        return jsonify({"status": "success"}), 200
+    return jsonify({"error": "No log data provided"}), 400
+
+@app.route('/get_logs', methods=['GET'])
+def get_logs():
+    with sqlite3.connect("/app/logs.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM logs ORDER BY timestamp DESC")
+        logs = cursor.fetchall()
+
+    # Format logs for display
+    logs_data = [{"timestamp": log[0], "log_message": log[1]} for log in logs]
+    return jsonify(logs_data), 200
 
 @app.route('/generate-terraform', methods=['POST'])
 def generate_terraform():
+    logger = get_logger("http://0.0.0.0:5000/logs")
     try:
         # Extract input data from the POST request
         data = request.json
@@ -61,7 +96,7 @@ def generate_terraform():
             count=replica_count,
             region=region
         )
-        print(rendered_template)
+        logger.info(rendered_template)
 
         output_file = TERRAFORM_DIR+"/main.tf"
         with open(output_file, "w") as file:
@@ -82,11 +117,12 @@ def generate_terraform():
 
 @app.route('/generate-terraform-plan', methods=['POST'])
 def generate_terrafrom_plan():
+    logger = get_logger("http://0.0.0.0:5000/logs")
     if not is_terraform_initialized():
-        print("Terraform is not initialized. Running terrafrom init")
-        run_terraform_command(["terraform", "init"],TERRAFORM_DIR)
-    print("Running 'terraform plan'...")
-    result = run_terraform_command(["terraform", "plan"],TERRAFORM_DIR)
+        logger.error("Terraform is not initialized. Running terrafrom init")
+        run_terraform_command(["terraform", "init"],logger,TERRAFORM_DIR)
+    logger.info("Running 'terraform plan'...")
+    result = run_terraform_command(["terraform", "plan"],logger,TERRAFORM_DIR)
     if result == None:
         return jsonify({
             "status": "error",
@@ -100,15 +136,16 @@ def generate_terrafrom_plan():
 
 @app.route('/generate-terraform-apply', methods=['POST'])
 def generate_terrafrom_apply():
+    logger = get_logger("http://0.0.0.0:5000/logs")
     if not is_terraform_initialized():
         result="Terraform is not initialized. run  /generate-terraform and /generate-terraform-plan first"
-        print(result)
+        logger.error(result)
         return jsonify({
             "status": "error",
             "message": f"{ result }"
         })
-    print("Running 'terraform apply'...")
-    result = run_terraform_command(["terraform", "apply", "-auto-approve"],TERRAFORM_DIR)
+    logger.info("Running 'terraform apply'...")
+    result = run_terraform_command(["terraform", "apply", "-auto-approve"],logger,TERRAFORM_DIR)
     if result == None:
         return jsonify({
             "status": "error",
@@ -122,12 +159,13 @@ def generate_terrafrom_apply():
 
 @app.route("/apply_ansible_configuration", methods=["POST"])
 def apply_ansible_configuration():
+    logger = get_logger("http://0.0.0.0:5000/logs")
     """
     Generate Ansible inventory file based on Terraform outputs.
     """
     if not is_terraform_initialized():
         result="Terraform is not initialized. please run '/generate-terraform'"
-        print(result)
+        logger.error(result)
         return jsonify({
             "status": "failure",
             "message": f"{ result }"
@@ -174,7 +212,7 @@ def apply_ansible_configuration():
     playbook_file="bootstrap_postgress.yml"
     inventory_file="inventory.ini"
 
-    print(f"Running playbook: {playbook_file}")
+    logger.info(f"Running playbook: {playbook_file}")
     # result = run_terraform_command(["ansible-playbook","-i inventory.ini bootstrap_postgress.yml"],current_dir)
     # if result == None:
     #     return jsonify({
@@ -192,23 +230,22 @@ def apply_ansible_configuration():
     )
 
     if runner.status == "successful":
-        print("Playbook executed successfully.")
+        logger.info("Playbook executed successfully.")
     else:
-        print(f"Playbook execution failed. Status: {runner.status}")
+        logger.error(f"Playbook execution failed. Status: {runner.status}")
         return jsonify({
             "status": "failure",
             "message": f"{ runner.status }"
         })
-    list_of_events=[]
     for event in runner.events:
         if 'stdout' in event:
-            list_of_events.append(event['stdout'])
-            print(event['stdout'])
+            logger.info(event['stdout'])
 
     return jsonify({
         "status": "success",
-        "message": f"{ ','.join(list_of_events) }"
+        "message": "postgres primary secondary is ready"
     })
 
 if __name__ == '__main__':
+    init_db()
     app.run(host='0.0.0.0', port=5000)
