@@ -50,6 +50,7 @@ currently I am using docker to run postgres , it is using host networking mode w
 I am doing a physical replication between primary and secondary which means there is one to one mapping in the bytes getting copied between them.
 
 > **Note:** by adding a lot of replicas we introduce overhead on network and cpu of primary , so it is a best practice to keep replicas below 5 for optimal performance
+> **Note:** please use python version greater than 3.8 on client machines as ansible core gives error for python version lower than this. For this purpose I used amazon linux 2023 ami which has latest version of python preinstalled.
 
 ### why I choose docker?
 * As I was facing issues with getting older versions of postgres , by using this approach I ensured that we can upgrade or down grade postgres to any version I want.
@@ -123,9 +124,6 @@ postgres-> ;
 
 postgres=>
 ```
-
-
-> **Note:** please use python version greater than 3.8 on client machines as ansible core gives error for python version lower than this. For this purpose I used amazon linux 2023 ami which has latest version of python preinstalled.
 
 
 
