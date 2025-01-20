@@ -1,13 +1,13 @@
 ## api that generates terrafrom code and applies ansible playbook to setup postgres in primary secondary mode
 
-### How to setup in local machine 
+### How to setup in local machine ?
 1. ensure that Terraform v1.5.6 is installed in your machine
 2. ensure Python 3.13.1 is installed in your machine
 3. ensure ansible-playbook [core 2.18.1] is installed in your machine
 4. create a virtual env in python by using `python3 -m venv env` and `source env/bin/activate`
 5. install the requirements.txt file by using command `pip3 install -r requirements.txt`
 
-### why Dockerized the entire application
+### Why dockerize the entire application ?
 To solve it runs on my machine problem , all you need to do is build the docker file , add env variables with
 ```bash
     docker run -e AWS_ACCESS_KEY_ID="<replace value>" \
@@ -65,7 +65,8 @@ I am doing a physical replication between primary and secondary which means ther
 ## if you want to add more options in postgres primary
 * just update the docker compose files of primary and secondary populate its values in inventory.ini , take input in `/apply_ansible_configuration` api and generate inventory.ini dynamically
 
-## Validating if replication is happening or not.
+## Validating if replication is happening or not?
+By running these two commands it validates that there are replication slots and 2 replicas being connected with primary
 ```bash 
    postgres=> SELECT * FROM pg_stat_replication
 postgres-> ;
@@ -82,7 +83,6 @@ postgres=> SELECT * FROM pg_replication_slots;
  replication_slot_1 |        | physical  |        |          | f         | t      |        107 |      |              | 0/8000148   |                    | reserved   |               | f
 (2 rows)
 ```
-By running these two commands it validates that there are replication slots and 2 replicas being connected with primary
 
 one other way would be to just create a table and see if it is getting replicated with replicas 
 
