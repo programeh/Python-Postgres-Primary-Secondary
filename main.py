@@ -10,8 +10,8 @@ app = Flask(__name__)
 
 max_connections=100
 shared_buffers='128MB'
-TERRAFORM_DIR = "terraform"
-ANSIBLE_DIR="ansible"
+TERRAFORM_DIR = "/app/terrafrom"
+ANSIBLE_DIR="/app/terrafrom/ansible"
 replica_count=1
 
 
@@ -50,8 +50,6 @@ def generate_terraform():
         region = data.get('region', 'us-east-1')
 
         template_file = "terraform_template.j2"
-        if not os.path.exists(TERRAFORM_DIR):
-            os.makedirs(TERRAFORM_DIR)
 
         with open(template_file, "r") as file:
             terraform_template_content = file.read()
@@ -85,8 +83,8 @@ def generate_terraform():
 @app.route('/generate-terraform-plan', methods=['POST'])
 def generate_terrafrom_plan():
     if not is_terraform_initialized():
-        print("Terraform is not initialized. Running 'terraform init'...")
-    run_terraform_command(["terraform", "init"])
+        print("Terraform is not initialized. Running terrafrom init")
+        run_terraform_command(["terraform", "init"],TERRAFORM_DIR)
     print("Running 'terraform plan'...")
     result = run_terraform_command(["terraform", "plan"],TERRAFORM_DIR)
     if result == None:
@@ -103,8 +101,12 @@ def generate_terrafrom_plan():
 @app.route('/generate-terraform-apply', methods=['POST'])
 def generate_terrafrom_apply():
     if not is_terraform_initialized():
-        print("Terraform is not initialized. Running 'terraform init'...")
-    run_terraform_command(["terraform", "init"])
+        result="Terraform is not initialized. run  /generate-terraform and /generate-terraform-plan first"
+        print(result)
+        return jsonify({
+            "status": "error",
+            "message": f"{ result }"
+        })
     print("Running 'terraform apply'...")
     result = run_terraform_command(["terraform", "apply", "-auto-approve"],TERRAFORM_DIR)
     if result == None:
@@ -123,6 +125,13 @@ def apply_ansible_configuration():
     """
     Generate Ansible inventory file based on Terraform outputs.
     """
+    if not is_terraform_initialized():
+        result="Terraform is not initialized. please run '/generate-terraform'"
+        print(result)
+        return jsonify({
+            "status": "failure",
+            "message": f"{ result }"
+        })
     data = request.json
     max_connections = data.get('max_connections', 100)
     shared_buffers = data.get('shared_buffers', '128MB')
@@ -130,8 +139,9 @@ def apply_ansible_configuration():
     postgres_image_tag= data.get("image_tag","14-alpine")
     try:
         # Fetch Terraform output
-        os.chdir("/Users/asutosh/Platform-PSQL/terraform")
-        terraform_output = subprocess.check_output(["terraform", "output", "-json"])
+        os.chdir(TERRAFORM_DIR)
+
+        terraform_output = subprocess.check_output(["terraform", "output", "-json"],cwd=TERRAFORM_DIR)
         output_data = json.loads(terraform_output)
 
         # Extract IPs
@@ -139,9 +149,6 @@ def apply_ansible_configuration():
         replica_ips = output_data["replica_ips"]["value"]
 
         primary_instance_private_ip= output_data["primary_private_ip"]["value"][0]
-        # Ensure Ansible directory exists
-        if not os.path.exists(ANSIBLE_DIR):
-            os.makedirs(ANSIBLE_DIR)
 
         os.chdir(ANSIBLE_DIR)
         current_dir=os.getcwd()
@@ -188,10 +195,20 @@ def apply_ansible_configuration():
         print("Playbook executed successfully.")
     else:
         print(f"Playbook execution failed. Status: {runner.status}")
-
+        return jsonify({
+            "status": "failure",
+            "message": f"{ runner.status }"
+        })
+    list_of_events=[]
     for event in runner.events:
         if 'stdout' in event:
+            list_of_events.append(event['stdout'])
             print(event['stdout'])
 
+    return jsonify({
+        "status": "success",
+        "message": f"{ ','.join(list_of_events) }"
+    })
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000)
