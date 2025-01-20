@@ -7,6 +7,14 @@
 4. create a virtual env in python by using `python3 -m venv env` and `source env/bin/activate`
 5. install the requirements.txt file by using command `pip3 install -r requirements.txt`
 
+### why Dockerized the entire application
+To solve it runs on my machine problem , all you need to do is build the docker file , add env variables with
+```bash
+    docker run -e AWS_ACCESS_KEY_ID="<replace value>" \
+               -e AWS_SECRET_ACCESS_KEY="<replace value>" \
+               -p 127.0.0.1:8080:5000 asutoshgha/postgresps:v15
+```
+
 
 
 ### Api details 
