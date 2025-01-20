@@ -27,7 +27,7 @@ To solve it runs on my machine problem , all you need to do is build the docker 
 ```
 * `/generate-terraform-plan` is used to get the plan result in json format, it doesn't take any inputs. It gives out the plan output in json format
 * `/generate-terraform-apply` is used to get the apply result in json format. It gives out the apply output in json format
-* `/apply_ansible_configuration` is used to setup the provisioned infrastructure to run postgres in primary secondary asynchronous replication.It take json input
+* `/apply_ansible_configuration` is used to setup the provisioned infrastructure to run postgres in primary secondary asynchronous replication.It takes json input
 ```json
 {
   "replica_count": 2,
@@ -62,7 +62,7 @@ I am doing a physical replication between primary and secondary which means ther
 * we can create a front end to this app so that it looks beautiful
 
 ## if you want to add more options in postgres primary
-* just update the docker compose files of primary and secondary populate its values in inventory.ini
+* just update the docker compose files of primary and secondary populate its values in inventory.ini , take input in `/apply_ansible_configuration` api and generate inventory.ini dynamically
 
 ## Validating if replication is happening or not.
 ```bash 
@@ -124,6 +124,8 @@ postgres-> ;
 postgres=>
 ```
 
+
+> **Note:** please use python version greater than 3.8 on client machines as ansible core gives error for python version lower than this. For this purpose I used amazon linux 2023 ami which has latest version of python preinstalled.
 
 
 
